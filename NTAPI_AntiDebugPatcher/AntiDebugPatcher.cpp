@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
 
     PID = atoi(argv[1]);
 
-    hProcess = OpenProcess(PROCESS_ALL_ACCESS,false,PID);
+    hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, PID);
     if (hProcess == NULL) {
         Warning("Process can't be opened, the PID doesn't exist");
         return EXIT_FAILURE;
@@ -61,11 +61,11 @@ int main(int argc, char* argv[]) {
         Warning("Failed to get handle to ntdll.dll");
         return EXIT_FAILURE;
     }
-    
+
     info("We got the NTDLL on the address : 0x%p", hNTDLL);
 
     //-------Here we start Populating the function of the NTAPI-------------
-    
+
     MyNtQueryInformationProcess R0m4Query = (MyNtQueryInformationProcess)GetProcAddress(hNTDLL, "NtQueryInformationProcess");
 
     STATUS = R0m4Query(hProcess, ProcessBasicInformation, &pbi, sizeof(pbi), &ReturnLength);
@@ -79,11 +79,12 @@ int main(int argc, char* argv[]) {
     //Use the process information as needed
     info("We retrieved the pebBaseAdress 0x%lx", pbi.PebBaseAddress);
 
-    BYTE BeingDebugged = NULL;
-    SIZE_T bytesRead = NULL;
-    
+    BYTE BeingDebugged,BeingDebuggedChecker = NULL;
+    SIZE_T bytesRead  = NULL;
+    SIZE_T bytesWritten;
+    BYTE BeingPatched = 0;
     if (!ReadProcessMemory(hProcess, (LPCVOID)((PBYTE)pbi.PebBaseAddress + 0x2), &BeingDebugged, sizeof(BeingDebugged), &bytesRead)) {
-        Warning("Failed to retrieve the Being Debugged flag, error 0x%lx",CustomError());
+        Warning("Failed to retrieve the Being Debugged flag, error 0x%lx", CustomError());
         return EXIT_FAILURE;
     }
     else {
@@ -91,17 +92,28 @@ int main(int argc, char* argv[]) {
     }
 
     if (BeingDebugged != 0) {
-        Warning("Debugger has been detected !!!Next time !");
+        Warning("Process is being debugged");
+        info("We are going to change the beingdebugged flag! ");
+
+        if (!WriteProcessMemory(hProcess, (LPVOID)((PBYTE)pbi.PebBaseAddress + 0x2), &BeingPatched, sizeof(BeingPatched), &bytesWritten)) {
+            Warning("The process still not patched,an error 0x%lx has occured", CustomError());
+            ReadProcessMemory(hProcess, (LPCVOID)((PBYTE)pbi.PebBaseAddress + 0x2), &BeingDebuggedChecker, sizeof(BeingDebuggedChecker), &bytesRead);
+            if (BeingDebuggedChecker == NULL) {
+                Warning("Failed to retrieve the Being Debugged flag, error 0x%lx", CustomError());
+                return EXIT_FAILURE;
+            }
+            return EXIT_FAILURE;
+        }
+        info("The Flag has been patched already , great one ");
+        if (BeingDebuggedChecker == 0) {
+            Warning(" changed the Being Debugged flag ------------ BeingDebugged = %lx", BeingDebuggedChecker);
+        }
+
         return EXIT_SUCCESS;
     }
     else {
         Warning("Debugger not detected !!!!");
     }
-
-
-
-    
-
 
 
 }
