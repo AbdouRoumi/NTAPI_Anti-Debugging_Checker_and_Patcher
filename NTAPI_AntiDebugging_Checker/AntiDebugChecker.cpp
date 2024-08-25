@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include "NTAPI_funcs.h"
 
+
+extern DWORD CustomError(void);
+
+
 // Function to get a module handle
 
 HMODULE GetMod(IN LPCWSTR moduleName) {
@@ -15,8 +19,8 @@ HMODULE GetMod(IN LPCWSTR moduleName) {
         return NULL;
     }
     else {
-        okay("Got handle on the module : %s \n", moduleName);
-        info("\\______[ %s _0x%p]", moduleName, hModule);
+        okay("Got handle on the module : %ls \n", moduleName);
+        info("\\______[ %ls _0x%p]", moduleName, hModule);
         return hModule;
     }
 }
@@ -26,7 +30,13 @@ int main(int argc, char* argv[]) {
     HANDLE hProcess = NULL;
     HMODULE hNTDLL = NULL;
     NTSTATUS STATUS = NULL;
+    fn_PROCESS_BASIC_INFORMATION pbi;
+    ULONG ReturnLength = NULL;
 
+
+    info("Getting the TEB ------\n");
+    PTEB pTeb = getTEB();
+    okay("We got the TEB  0x%p ", pTeb);
 
     if (argc < 2) {
         Warning("Usage : Ntapi_AntiDebug_Checker.exe PID");
@@ -36,15 +46,62 @@ int main(int argc, char* argv[]) {
 
     PID = atoi(argv[1]);
 
-    hNTDLL = GetMod(L"hNTDLL");
+    hProcess = OpenProcess(PROCESS_ALL_ACCESS,false,PID);
+    if (hProcess == NULL) {
+        Warning("Process can't be opened, the PID doesn't exist");
+        return EXIT_FAILURE;
+    }
+
+    info("Great process opened");
+
+
+    info("Trying to get handle on hNTDLL");
+    hNTDLL = GetMod(L"NTDLL");
+    if (hNTDLL == NULL) {
+        Warning("Failed to get handle to ntdll.dll");
+        return EXIT_FAILURE;
+    }
     
+    info("We got the NTDLL on the address : 0x%p", hNTDLL);
 
     //-------Here we start Populating the function of the NTAPI-------------
+    
+    MyNtQueryInformationProcess R0m4Query = (MyNtQueryInformationProcess)GetProcAddress(hNTDLL, "NtQueryInformationProcess");
+
+    STATUS = R0m4Query(hProcess, ProcessBasicInformation, &pbi, sizeof(pbi), &ReturnLength);
+
+    if (STATUS != STATUS_SUCCESS) {
+        Warning("We failed to retrieve the ProcessBasicInformation with a status of : 0x%lx", STATUS);
+        CloseHandle(hProcess);
+        return EXIT_FAILURE;
+    }
+
+    //Use the process information as needed
+    info("We retrieved the pebBaseAdress 0x%lx", pbi.PebBaseAddress);
+
+    BYTE BeingDebugged = NULL;
+    SIZE_T bytesRead = NULL;
+    
+    if (!ReadProcessMemory(hProcess, (LPCVOID)((PBYTE)pbi.PebBaseAddress + 0x2), &BeingDebugged, sizeof(BeingDebugged), &bytesRead)) {
+        Warning("Failed to retrieve the Being Debugged flag, error 0x%lx",CustomError());
+        return EXIT_FAILURE;
+    }
+    else {
+        info("BeingDebugged flag: %d", BeingDebugged);
+    }
+
+    if (BeingDebugged != 0) {
+        Warning("Debugger has been detected !!!Next time !");
+        return EXIT_SUCCESS;
+    }
+    else {
+        Warning("Debugger not detected !!!!");
+
+    }
 
 
-    NtQueryInformationProcess R0m4Query = (NtQueryInformationProcess)GetProcAddress(hNTDLL, "NtQueryInformationProcess");
+    
 
-    STATUS = NtQueryInformationProcess()
 
 
 }
