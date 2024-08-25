@@ -11,7 +11,7 @@ This tool is intended for educational purposes only. It demonstrates how to chec
 
 ## Overview
 
-The **NTAPI Anti-Debugging Checker and Patcher** allows you to check if a process is being debugged and modify the `BeingDebugged` flag in the PEB to bypass basic anti-debugging mechanisms. This project is useful for security researchers and developers interested in understanding how anti-debugging techniques work at a low level.
+The **NTAPI Anti-Debugging Checker and Patcher** allows you to check if a process is being debugged and modify the `BeingDebugged` flag in the PEB to bypass basic anti-debugging mechanisms. This project is useful for security researchers ,Malware developers and Analysts interested in understanding how anti-debugging techniques work at a low level.
 
 ## Features
 
